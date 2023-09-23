@@ -1,0 +1,28 @@
+{
+  "name": "ens-auctions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Arr00 <13561405+arr00@users.noreply.github.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^3.0.3",
+    "prettier-plugin-solidity": "^1.1.3"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-solidity"
+    ],
+    "overrides": [
+      {
+        "files": "*.sol",
+        "options": {
+          "printWidth": 80,
+          "tabWidth": 4,
+          "useTabs": false,
+          "singleQuote": false,
+          "bracketSpacing": false
+        }
+      }
+    ]
+  }
+}

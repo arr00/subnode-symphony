@@ -155,7 +155,7 @@ contract Auctioneer is ENSManager {
         FutureClaim memory futureClaim = futureClaims[node];
         if (
             futureClaim.unlockTime > block.timestamp &&
-            futureClaim.unlockTime > nodeMeta[node].lockTime
+            futureClaim.unlockTime > nodeMeta[futureClaim.parentNode].lockTime
         ) {
             revert ClaimLocked();
         }

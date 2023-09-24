@@ -11,13 +11,19 @@ abstract contract ENSManager is IERC1155Receiver {
     error NodeNotOwned();
     error InvalidTokenAmount();
     error InvalidTokenSender();
+    error NodeLocked();
 
     BaseRegistrarImplementation public immutable ENS;
     bytes32 public immutable ENS_BASE_NODE;
     ENSRegistryWithFallback public immutable ENS_REGISTRY;
     NameWrapper public immutable NAME_WRAPPER;
 
-    mapping(bytes32 => address payable) public nodeOwners;
+    struct NodeInfo {
+        address payable owner;
+        uint40 lockTime;
+    }
+
+    mapping(bytes32 => NodeInfo) public nodeMeta;
 
     constructor(
         BaseRegistrarImplementation ens,
@@ -40,9 +46,9 @@ abstract contract ENSManager is IERC1155Receiver {
         );
     }
 
-    function withdraw(uint256 tokenId) external {
-        if (nodeOwners[bytes32(tokenId)] != msg.sender) {
-            revert NotOwner();
+    function withdraw(uint256 tokenId) external isAllowed(bytes32(tokenId)) {
+        if (nodeMeta[bytes32(tokenId)].lockTime > block.timestamp) {
+            revert NodeLocked();
         }
         NAME_WRAPPER.safeTransferFrom(
             address(this),
@@ -51,7 +57,27 @@ abstract contract ENSManager is IERC1155Receiver {
             1,
             ""
         );
-        delete nodeOwners[bytes32(tokenId)];
+        delete nodeMeta[bytes32(tokenId)];
+    }
+
+    function setRecord(
+        bytes32 node,
+        address owner,
+        address resolver,
+        uint64 ttl
+    ) external isAllowed(node) {
+        NAME_WRAPPER.setRecord(node, owner, resolver, ttl);
+    }
+
+    function setResolver(
+        bytes32 node,
+        address resolver
+    ) external isAllowed(node) {
+        NAME_WRAPPER.setResolver(node, resolver);
+    }
+
+    function setTTL(bytes32 node, uint64 ttl) external isAllowed(node) {
+        NAME_WRAPPER.setTTL(node, ttl);
     }
 
     function _setSubnodeOwner(
@@ -59,14 +85,36 @@ abstract contract ENSManager is IERC1155Receiver {
         string memory label,
         address owner
     ) internal returns (bytes32) {
-        if (nodeOwners[node] == address(0)) {
+        if (nodeMeta[node].owner == address(0)) {
             revert NodeNotOwned();
         }
         return NAME_WRAPPER.setSubnodeOwner(node, label, owner, 0, 0);
     }
 
+    function lockNode(bytes32 node, uint40 timestamp) external isAllowed(node) {
+        if (nodeMeta[node].lockTime > timestamp) {
+            revert NodeLocked();
+        }
+        nodeMeta[node].lockTime = timestamp;
+    }
+
     function _ensNodeExists(bytes32 node) internal view returns (bool) {
         return ENS_REGISTRY.owner(node) != address(0);
+    }
+
+    function _isLockedForAYear(bytes32 node) internal view returns (bool) {
+        (address owner, , uint64 expiry) = NAME_WRAPPER.getData(uint256(node));
+        return
+            owner == address(this) &&
+            nodeMeta[node].lockTime > block.timestamp &&
+            nodeMeta[node].lockTime - block.timestamp >= 365 days &&
+            expiry > block.timestamp &&
+            expiry - block.timestamp - 90 days >= 365 days;
+    }
+
+    function _isNodeInGoodStanding(bytes32 node) internal view returns (bool) {
+        (address owner, , uint64 expiry) = NAME_WRAPPER.getData(uint256(node));
+        return owner == address(this) && expiry - 90 days > block.timestamp;
     }
 
     function onERC1155Received(
@@ -82,7 +130,7 @@ abstract contract ENSManager is IERC1155Receiver {
         if (value != 1) {
             revert InvalidTokenAmount();
         }
-        nodeOwners[bytes32(tokenId)] = payable(from);
+        nodeMeta[bytes32(tokenId)].owner = payable(from);
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
@@ -100,5 +148,12 @@ abstract contract ENSManager is IERC1155Receiver {
         bytes4 interfaceId
     ) external view returns (bool) {
         return interfaceId == type(IERC1155Receiver).interfaceId;
+    }
+
+    modifier isAllowed(bytes32 node) {
+        if (nodeMeta[node].owner != msg.sender) {
+            revert NotOwner();
+        }
+        _;
     }
 }

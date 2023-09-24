@@ -102,4 +102,65 @@ contract AuctioneerTest is Test {
             "zoo"
         );
     }
+
+    function test_lickAuction2() public {
+        address firstBidder = address(0x12345);
+        address secondVoter = address(0x2345);
+
+        vm.prank(arr00);
+        namewrapper.safeTransferFrom(
+            arr00,
+            address(auctioneer),
+            42101940235729599527735073319648523872099689871269006044944747914291998316615,
+            1,
+            ""
+        );
+
+        vm.prank(arr00);
+        auctioneer.lockNode(
+            bytes32(
+                uint256(
+                    42101940235729599527735073319648523872099689871269006044944747914291998316615
+                )
+            ),
+            uint40(block.timestamp + 368 days)
+        );
+
+        vm.deal(firstBidder, 1 ether);
+        vm.prank(firstBidder);
+        auctioneer.lick{value: 0.001 ether}(
+            bytes32(
+                uint256(
+                    42101940235729599527735073319648523872099689871269006044944747914291998316615
+                )
+            ),
+            "zoo"
+        );
+
+        vm.deal(secondVoter, 1 ether);
+        vm.prank(secondVoter);
+        auctioneer.bid{value: 0.002 ether}(
+            bytes32(
+                uint256(
+                    42101940235729599527735073319648523872099689871269006044944747914291998316615
+                )
+            ),
+            "zoo"
+        );
+
+        vm.warp(block.timestamp + 1 days);
+
+        auctioneer.finalize(
+            bytes32(
+                uint256(
+                    42101940235729599527735073319648523872099689871269006044944747914291998316615
+                )
+            ),
+            "zoo"
+        );
+
+        auctioneer.claim(
+            0x8a0f8c65634af2c9dae117a9d7465a0fec2d25aa09cc54eaea3b9770b60a94cd
+        );
+    }
 }

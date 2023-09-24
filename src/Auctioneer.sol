@@ -18,6 +18,12 @@ contract Auctioneer is ENSManager {
         uint72 price,
         address winner
     );
+    event ClaimCreated(
+        bytes32 indexed newNode,
+        bytes32 indexed parentNode,
+        uint72 price,
+        address winner
+    );
 
     error NotEnoughEth();
     error AuctionAlreadyExists();
@@ -45,6 +51,7 @@ contract Auctioneer is ENSManager {
         uint40 unlockTime;
         address payable claimer;
         address payable payer;
+        uint256 balance;
     }
 
     constructor(
@@ -138,15 +145,22 @@ contract Auctioneer is ENSManager {
         );
         address payable parentNodeOwner = nodeMeta[parentNode].owner;
         // Only send eth immediatly if locked for at least a year
-        if (_isLockedForAYear(parentNode)) {
+        if (_isLockedUntil(parentNode, uint40(block.timestamp + 365 days))) {
             parentNodeOwner.transfer(auction.secondPrice);
         } else {
             futureClaims[newNode] = FutureClaim({
                 parentNode: parentNode,
                 unlockTime: uint40(block.timestamp + 365 days),
                 claimer: parentNodeOwner,
-                payer: auction.leadingBidder
+                payer: auction.leadingBidder,
+                balance: auction.secondPrice
             });
+            emit ClaimCreated(
+                newNode,
+                parentNode,
+                auction.secondPrice,
+                auction.leadingBidder
+            );
         }
         delete auctions[keccak256(abi.encodePacked(parentNode, labelHash))];
     }
@@ -155,12 +169,14 @@ contract Auctioneer is ENSManager {
         FutureClaim memory futureClaim = futureClaims[node];
         if (
             futureClaim.unlockTime > block.timestamp &&
-            futureClaim.unlockTime > nodeMeta[futureClaim.parentNode].lockTime
+            !(futureClaim.unlockTime <=
+                nodeMeta[futureClaim.parentNode].lockTime &&
+                _isLockedUntil(futureClaim.parentNode, futureClaim.unlockTime))
         ) {
             revert ClaimLocked();
         }
         delete futureClaims[node];
-        futureClaim.claimer.transfer(futureClaim.claimer.balance);
+        futureClaim.claimer.transfer(futureClaim.balance);
     }
 
     function refund(bytes32 node) external {
@@ -173,6 +189,6 @@ contract Auctioneer is ENSManager {
             revert ClaimLocked();
         }
         delete futureClaims[node];
-        futureClaim.payer.transfer(futureClaim.payer.balance);
+        futureClaim.payer.transfer(futureClaim.balance);
     }
 }

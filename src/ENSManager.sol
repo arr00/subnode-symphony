@@ -102,14 +102,17 @@ abstract contract ENSManager is IERC1155Receiver {
         return ENS_REGISTRY.owner(node) != address(0);
     }
 
-    function _isLockedForAYear(bytes32 node) internal view returns (bool) {
+    function _isLockedUntil(
+        bytes32 node,
+        uint40 timestamp
+    ) internal view returns (bool) {
         (address owner, , uint64 expiry) = NAME_WRAPPER.getData(uint256(node));
         return
             owner == address(this) &&
             nodeMeta[node].lockTime > block.timestamp &&
-            nodeMeta[node].lockTime - block.timestamp >= 365 days &&
-            expiry > block.timestamp &&
-            expiry - block.timestamp - 90 days >= 365 days;
+            nodeMeta[node].lockTime >= timestamp &&
+            expiry >= block.timestamp &&
+            expiry - 90 days >= timestamp;
     }
 
     function _isNodeInGoodStanding(bytes32 node) internal view returns (bool) {

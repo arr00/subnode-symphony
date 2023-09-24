@@ -9,7 +9,8 @@
     "prettier-plugin-solidity": "^1.1.3"
   },
   "scripts": {
-    "prettier": "prettier --write \"**/*.sol\""
+    "lint": "prettier --write \"**/*.sol\"",
+    "test": "forge test --fork-url https://mainnet.infura.io/v3/510d4fdf75fe4c1696e1a5515254a2fc"
   },
   "prettier": {
     "plugins": [

@@ -17,7 +17,7 @@ abstract contract ENSManager is IERC1155Receiver {
     ENSRegistryWithFallback public immutable ENS_REGISTRY;
     NameWrapper public immutable NAME_WRAPPER;
 
-    mapping(bytes32 => address) public nodeOwners;
+    mapping(bytes32 => address payable) public nodeOwners;
 
     constructor(
         BaseRegistrarImplementation ens,
@@ -38,7 +38,6 @@ abstract contract ENSManager is IERC1155Receiver {
             1,
             ""
         );
-        nodeOwners[bytes32(tokenId)] = msg.sender;
     }
 
     function withdraw(uint256 tokenId) external {
@@ -83,7 +82,7 @@ abstract contract ENSManager is IERC1155Receiver {
         if (value != 1) {
             revert InvalidTokenAmount();
         }
-        nodeOwners[bytes32(tokenId)] = from;
+        nodeOwners[bytes32(tokenId)] = payable(from);
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
